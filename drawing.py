@@ -1,64 +1,224 @@
-""" drawing.py
+"""drawing.py
+
+about
+=====
  
- A small graphics package for use in jupyter[1] notebooks, built on 
- top of the ipycanvas[2] package and inspired by Zelle's graphics[3] package.
+A graphics library for use in jupyter[1] python notebooks, 
+built on top of the ipycanvas[2] package, 
+with an API similar to parts of Zelle's graphics[3] library.
 
-     from drawing import Drawing, Point, Rectangle, Polygon, Circle, Text
-     d = Drawing(200, 200, background='#999999')
-     d.add( Rectangle(Point(10, 10), Point(180, 160), color='#aaccee'))
-     points = [Point(30, 40), Point(40, 100), Point(150, 130)]
-     d.add( Polygon(points, outline='black', color=None) )
-     d.add( Circle(Point(100, 100), radius=40, color='#996633cc'))
-     message = "It's a drawing!"
-     d.add( Text(Point(50, 185), message, face="20px Times", color='darkblue'))
-     d.draw()
+It can draw pictures made up of points, text, circles, lines,
+rectangles, polygons, and even "crude" lines (something like
+hand-drawn lines) from a cell in a jupyter notebook.
 
- The Rectangle, Circle, and Polygon may be filled in have an outline
- draw around them or both.  Corresponding argument keywords are
-     color='#rrggbbtt'         fill color (rbgt hex html5 color name) or None
-     outline='#rrggbbtt'       outline color or None
-     line_width=3              outline width in pixels
+Here's an example.
 
- Coordinates are specified with Point(x,y), a class that
- supports several vector addition and multiplication operations.
+    from drawing import *
+    image = Drawing(400, 400)
+    image.set_coords(0, 0, 1, 1)
+    image.add( Polygon([Point(0.3,.4), Point(0.5,0.9), Point(0.8,0.4)]) )
+    image.add( Text( Point(0.2, 0.1), "It's a triangle!") )
+    image.draw()
 
- Two line classes are included, Line and CrudeLine, shape with a bit of 
- randomness which tries to imitate a hand-drawn line.
+To use this library, the workflow is
 
- Text fonts and sizes are specified with a "face" parameter, 
- e.g. face="12px Times", which contains a css style string.
+   (1) Create a drawing object.
+   (2) Add Shape objects to it.
+   (3) Draw it.
 
- Several rendering and display approaches are possible.
+API
+===
 
-     draw()                  Recommended. But the image is not stored in 
-                             the jupyter notebook, only visible in the client browser.
+Here are the supplied classes and functions.
 
-     show()                  Allows animations. But errors are silently ignored.
+  Drawing
 
-     render()  # cell 1      Saved in notebook. But render must be finished 
-     display() # cell 2      in a previously evaluated cell before display is called.
+      The Drawing contains all the shapes to be drawn.
 
- Tested with python 3.6.7, jupyterhub 0.9.4, and ipycanvas 0.4.6.
+      drawing = Drawing(width, height)    # size in pixels
+
+                Optional arguments and their default values are :
+                  background   = '#eeeeeeff'     # nearly white opaque 
+                  border       = '#666666ff'     # grey opaque
+                  border_width = 2               # in pixels
+
+      drawing.set_coords(xll, yll, xur, yur)     
+
+         The coordinate system for the drawing and all its shapes
+         can be set by defining a lower-left and upper-right corner.
+         If not set, the default values are 
+             (xll, yll) = (0, height)
+             (xur, yur) = (width, 0)
+         which puts (0,0) at the top left with  y increasing down.
+
+      drawing.add(shape)                  # Add a shape (see below).
+
+      drawing.draw()                      # display the drawing.
+
+      drawing.to_file('filename.png')     # After being displayed, a drawing
+                                          # can be saved as a PNG image file.
+
+  Shapes 
+
+      All the other classes represent graphical elements within the drawing,
+      most with similar parameters.
+
+          shapes                               optional arguments
+          -----                                ------------------
+          Point(x, y)                          color
+          Text(point, message)                 color, face
+          Line(point1, point2)                 color, line_width
+          CrudeLine(point1, point2)            color, line_width, crudity             
+          Circle(point, radius)                color, outline, line_width
+          Rectangle(point1, point2)            color, outline, line_width
+          Polygon([points])                    color, outline, line_width
+
+      Colors are given by a string, either names as defined in the CSS standard
+      or as CSS hex string starting with #, such as '#ff00cc' (r,g,b 0 to 255) 
+      or '#00ff00cc' (r,g,b,t) where t is the transparency, also from 0 to 255.
+      Google "CSS color" for more information on these data types.
+
+      Two color conversion utility functions are provided which can generate 
+      color strings from (red,green,blue) or (r,g,b,t) values : 
+
+          color_css_string = color_rgb(red, green, blue)
+          color_css_string = color_rgbt(red, green, blue, transparency)
+
+      The Point class can be displayed, but is primarily intended 
+      for defining the positions of the other shapes. Points can
+      be added and subtracted from each other, acting as two dimensional
+      vectors. Scalar multiplication and the dot product are also supported.
+      Points have one optional argument, color.
+
+      The Text class displays a character string, with its left starting
+      position defined by the given point. The font and text size can
+      be set by the face string argument, which behaves much like the
+      CSS font property. For example, face="12px sans-serif" or
+      face="8px Times".
+
+      The Line and CrudeLine classes draw a line between two points.
+      The width can be adjusted with the line_width optional argument
+      (whose units are pixels, not changed by set_coords.) 
+
+      A CrudeLine is an approximately placed, not-quite-straight line,
+      which is intended to imitate a hand-drawn line. Its "crudity"
+      optional argument, in pixels, sets roughly how far off the 
+      ends will be from their given position. 
+
+      The Rectangle, Circle, and Polygon may be filled in, have an 
+      outline, or both. The outline argument gives the color of
+      the outline; if omitted then the outline is omitted. The 
+      width of the outline is given by the line_width parameter.
+
+complications 
+=============
+
+The simplest way to make a drawing appear, the .draw() method, has
+several limitations. A few other alternatives are implemented here,
+but all have their own issues.
+
+    I) notebook saved images: drawing.render() ... drawing.display()
+
+      The first issue is that .draw() does not put the graphics 
+      display into the jupyter notebook in a way that is saved when 
+      the notebook is saved. This means that if you download the 
+      notebook using "save_as_html", the drawing will not be part
+      of the .html file. 
+
+      An alternative to .draw() that does put save the graphics
+      in the notebook is to (a) .render() the drawing, and 
+      then in a different notebook cell (after the drawing 
+      has finished processing), (b) call .display() to show it.
+      
+      Then when the notebook is downloaded with "save as html",
+      the images are visible.
+
+      However, this does not work all in one cell: the drawing must 
+      be completely evaluated before .render() is called.
+
+    I) animations : drawing.show()
+
+      The second issue is animated drawings - things that change or move.
+
+      The .draw() method shows the drawing all at once, with the 
+      underlying ipycanvas cache set to True, which has the advantage
+      of being fast but does not permit animations.
+
+      The draw.show() method is the start of allowing animations,
+      since it displays graphics as soon as jupyter is ready.
+      However, it uses a call-back routine which means that runtime
+      errors fail silently. 
+
+      While animations were working in an earlier version of this
+      software, they are not yet supported here.
+
+coordinates       
+===========
+
+The underlying canvas API allows for floating point coordinates,
+which is part of the model of the smooth bezier curves and paths
+supported by the underlying web canvas display system.
+
+So even though the drawings are displayed in terms of pixels,
+the default coordinate system actually refers to the edges of 
+those pixels.
+
+Consider for example a canvas with a height of 2 pixels and width of 4
+pixels. Using the default coordinate system, that looks like this :
+
+         +----+----+----+----+           0  = y
+         |    |    |    |    |
+         |    |    |    |    |
+         +----+----+----+----+           1
+         |    |    |    |    |
+         |    |    |    |    |
+         +----+----+----+----+           2
+
+         0    1    2    3    4  = x
+
+credits
+=======
+
+Tested with python 3.6.7, jupyterhub 0.9.4, and ipycanvas 0.4.6.
   
- [1] jupyter : https://jupyter.org
- [2] ipycanvas : https://ipycanvas.readthedocs.io/en/latest/
- [3] Zelle's graphics : https://mcsp.wartburg.edu/zelle/python/
+* [1] jupyter : https://jupyter.org
+* [2] ipycanvas : https://ipycanvas.readthedocs.io/en/latest/
+* [3] Zelle's graphics : https://mcsp.wartburg.edu/zelle/python/
  
- Jim Mahoney | cs.bennington.college | July 2020 | MIT License
+Jim Mahoney | cs.bennington.college | September 2020 | MIT License
+
 """
 
 from ipycanvas import Canvas
 import random, time
 import numpy as np
-from numpy import pi, sqrt, sin, cos
+from numpy import pi, sqrt, sin, cos, abs
 import matplotlib.pyplot as plt
+
+def color_rgb(red, green, blue):
+    """ Given three intensities red, green, blue, all from 0 to 255,
+        returns the corresponding CSS color string e.g. '#ff00cc' """
+    return f"#{red*256**2 + green*256 + blue:06x}"
+assert color_rgb(255, 255, 255) == '#ffffff'  # tests
+assert color_rgb(0, 64, 255)  == '#0040ff'
+assert color_rgb(0, 0, 0) == '#000000'
+
+def color_rgbt(red, green, blue, transparency):
+    """ Given four intensities red, green, blue, transparency,
+        all from 0 to 255, returns the corresponding CSS 
+        color string e.g. '#ff00ccff' """
+    return f"#{red*256**3 + green*256**2 + blue*256 + transparency:08x}"
+assert color_rgbt(255, 255, 255, 255) == '#ffffffff'
+assert color_rgbt(0, 64, 255, 128)  == '#0040ff80'
+assert color_rgbt(0, 0, 0, 255) == '#000000ff'
+
 
 class Drawing(Canvas):
     """ A drawing made of shapes. """
 
     defaults = {
-        'background' : '#000000ff',  # black opaque 
-        'border' : '#888888ff',      # grey opaque
+        'background' : '#eeeeeeff',  # nearly white opaque 
+        'border' : '#666666ff',      # grey opaque
         'border_width' : 2,          # pixels
         'cache_default': True,       # display all components at end 
         'sync_image_data' : True     # needed for get_image_data()
@@ -67,7 +227,7 @@ class Drawing(Canvas):
     def __init__(self, width=500, height=500, **kwargs):
         # Examples : 
         #   Drawing(border=None)            # omit border
-        #   Drawing(background='white')     # white rather than default black
+        #   Drawing(background='white')     # white rather than default 
         #   Drawing(800, 200)               # 800 pixels wide, 200 pixels high
         for key in Drawing.defaults.keys():
             if kwargs.get(key, None) == None:
@@ -81,7 +241,53 @@ class Drawing(Canvas):
         self.height = height
         self.caching = kwargs['caching']
         self.components = []
-        
+        #
+        (self.xll, self.yll) = (0.0, 1.0 * height)
+        (self.xur, self.yur) = (1.0 * width, 0.0)
+
+    def set_coords(self, xll, yll, xur, yur):
+        """ Set the drawing coordinate system
+            where ll is 'lower left' and ur is 'upper right' """
+        self.xll = xll
+        self.yll = yll
+        self.xur = xur
+        self.yur = yur
+
+    def _xy(self, x, y):
+        """ convert drawing coords (x,y) to canvas coords (_x,_y)
+            with  0 <= _x <= width , 0 <= _y <= height """
+        _x = (x - self.xll) * self.width / (self.xur - self.xll)
+        _y = (self.yur - y) * self.height / (self.yur - self.yll)
+        return (_x, _y)
+    def _size(self, xsize, ysize=None):
+        """ convert drawing sizes to canvas _sizes ,  using x scale """
+        _xsize = xsize * self.width / abs(self.xur - self.xll)
+        if ysize != None:
+            _ysize = ysize * self.height / abs(self.yur - self.yll)
+            return (_xsize, _ysize)
+        else:
+            return _xsize
+
+    # To override all the canvas drawing routines with a new cord system,
+    # translating (x,y) to (_x, _y), would take a lot of wrappers ...
+    # so at this point I'm just modifying the _render() methods of shapes.
+    #def fill_rect(self, x, y, width, height=None): pass
+    #def fill_rects(self, x, y, width, height=None): pass
+    #def stroke_rect(self, x, y, width, height=None): pass
+    #def stroke_rects(self, x, y, width, height=None): pass
+    #def clear_rect(x, y, width, height=None)
+    #def fill_arc(self, x, y, radius, theta0, theta1): pass
+    #def fill_arcs(self, x, y, radius, theta0, theta1): pass
+    #def stroke_arc(self, x, y, radius, theta0, theta1): pass
+    #def stroke_arcs(self, x, y, radius, theta0, theta1): pass
+    #def move_to(self, x, y): pass
+    #def line_to(self, x, y): pass
+    #def line_width(self, size): pass
+    #def rect(self, x, y, width, height): pass
+    #def arc(self, x, y, width, height, anticlockwise=False): pass
+    #def draw_image(self, image, x=0, y=0, width=None, height=None ): pass
+    # and the text and image routines ... ugh.
+    
     def add(self, shape):
         """ Add a shape to this drawing. """
         # And remember this drawing in the shape.
@@ -181,7 +387,7 @@ class Drawing(Canvas):
         # Cons: 
         #   * errors fail silently in the callback handler
         #   * the displayed images is only visible after the cell is evaluated;
-        #     it isnn't saved in the notebook or in "download as HTML"
+        #     it isn't saved in the notebook or in "download as HTML"
         # Example :
         #    ----- cell 1 -------------------
         #    |  d = Drawing(100, 100)
@@ -208,7 +414,7 @@ class Drawing(Canvas):
         #    And is therefore not in the server-side notebook itself and not
         #    in the in "download as HTML" representation of the notebook.
         # Example:
-         #    ----- cell 1 -------------------
+        #    ----- cell 1 -------------------
         #    |  d = Drawing(100, 100)
         #    |  d.add( Line( Point(10, 10), Point(80, 90), 'red') )
         #    |  d.draw()
@@ -216,9 +422,9 @@ class Drawing(Canvas):
         self.render()
         return self
 
-default_color = '#cccccccc' # whiteish mostly opaque (default black background)
+default_color = '#111111cc' # dark mostly opaque (default off-white background)
 default_line_width = 2      # pixel width of outline or line
-    
+
 class Shape:
     """ A graphics component within a drawing """
     def __init__(self, x=0, y=0,
@@ -237,7 +443,7 @@ class Shape:
     def render(self):
         if self.drawing:
             self.drawing.save()
-            self._render(self.drawing)
+            self._render()
             self.drawing.restore()
     def _render(self):
         pass  # override this
@@ -277,9 +483,11 @@ class Point(Shape):
         else:
             its_color = ', color={self.color}'
         return f"Point({self.x}, {self.y}{its_color})"
-    def _render(self, canvas):
+    def _render(self):
+        canvas = self.drawing
         canvas.fill_style = self.color
-        canvas.fill_arc(self.x, self.y, 1, 0.0, 2*pi) # radius 1
+        (_x, _y) = canvas._xy(self.x, self.y) # convert to canvas coords
+        canvas.fill_arc(_x, _y, 1, 0.0, 2*pi) # radius 1 pixel
     def __add__(self, other):
         return Point(self.x + other.x, self.y + other.y, self.color)
     def __sub__(self, other):
@@ -309,18 +517,30 @@ assert 3 * _point_b == Point(15.0, -3.0), 'Point scalar product, scalar first'
         
 class Circle(Shape):
     """ A circle defined by its center Point and radius """
+    # The drawing.set_coords() allows the x and y axes to have their own scales,
+    # which means that circles will turn into ellipses if they're different.
     def __init__(self, center=Point(20, 20), radius=10, color=default_color,
                  outline=None, line_width=default_line_width):
         Shape.__init__(self, x=center.x, y=center.y,
                        color=color, outline=outline, line_width=line_width)
         self.radius = radius
-    def _render(self, canvas):
+    def _render(self):
+        canvas = self.drawing
+        canvas.begin_path()
+        (_x, _y) = canvas._xy(self.x, self.y) # convert to canvas coords
+        (_xradius, _yradius) = canvas._size(self.radius, self.radius)
+        #canvas.ellipse(_x, _y, _xradius, _yradius, 0.0, 0.0, 2*pi)
+        # ellipse is in in web canvas ... not in ipycanvas ?
+        # See github.com/martinRenou/ipycanvas/blob/master/ipycanvas/canvas.py
+        canvas._send_canvas_command('ellipse',
+                      (_x, _y, _xradius, _yradius, 0.0, 0.0, 2*pi))
         if self.color:
             canvas.fill_style = self.color
-            canvas.fill_arc(self.x, self.y, self.radius, 0.0, 2*pi)
+            canvas.fill()
         if self.outline:
             canvas.stroke_style = self.outline
-            canvas.stroke_arc(self.x, self.y, self.radius, 0.0, 2*pi)
+            canvas.line_width = self.line_width
+            canvas.stroke()
             
 class Line(Shape):
     """ A straight line between two Points """
@@ -330,12 +550,15 @@ class Line(Shape):
                        color=color, line_width=line_width)
         self.p0 = p0
         self.p1 = p1
-    def _render(self, canvas):
+    def _render(self):
+        canvas = self.drawing
         canvas.begin_path()
         canvas.line_width = self.line_width
         canvas.stroke_style = self.color
-        canvas.move_to(self.p0.x, self.p0.y)
-        canvas.line_to(self.p1.x, self.p1.y)
+        (_x0, _y0) = canvas._xy(self.p0.x, self.p0.y)
+        (_x1, _y1) = canvas._xy(self.p1.x, self.p1.y)
+        canvas.move_to(_x0, _y0)
+        canvas.line_to(_x1, _y1)
         canvas.stroke()
 
 class Polygon(Shape):
@@ -347,15 +570,19 @@ class Polygon(Shape):
         Shape.__init__(self, x=x, y=y,
                        color=color, outline=outline, line_width=line_width)
         self.points = points
-    def _trace(self, canvas):
+    def _trace(self):
+        canvas = self.drawing
         if self.points:
             canvas.begin_path()
-            canvas.move_to(self.points[0].x, self.points[0].y)
+            (_x, _y) = canvas._xy(self.points[0].x, self.points[0].y)
+            canvas.move_to(_x, _y)
             for p in self.points[1:]:
-                canvas.line_to(p.x, p.y)
+                (_x, _y) = canvas._xy(p.x, p.y)
+                canvas.line_to(_x, _y)
             canvas.close_path()
-    def _render(self, canvas):
-        self._trace(canvas)
+    def _render(self):
+        canvas = self.drawing
+        self._trace()
         if self.color:
             canvas.fill_style = self.color                    
             canvas.fill()
@@ -371,10 +598,12 @@ class Text(Shape):
         self.text = text
         self.face = face
         self.position = position
-    def _render(self, canvas):
+    def _render(self):
+        canvas = self.drawing
         canvas.font = self.face
         canvas.fill_style = self.color
-        canvas.fill_text(self.text, self.position.x, self.position.y)
+        (_x, _y) = canvas._xy(self.position.x, self.position.y)
+        canvas.fill_text(self.text, _x, _y)
             
 class Rectangle(Shape):
     """ An orthogonal box defined by two corner points. """
@@ -384,18 +613,20 @@ class Rectangle(Shape):
                        color=color, outline=outline, line_width=line_width)
         self.p0 = p0
         self.p1 = p1
-        self.rect_width = p1.x - p0.x
-        self.rect_height = p1.y - p0.y
-    def _render(self, canvas):
+        self.rect_width = abs(p1.x - p0.x)
+        self.rect_height = abs(p1.y - p0.y)
+    def _render(self):
+        canvas = self.drawing
+        # The web canvas api needs the top left corner.
+        (_x, _y) = canvas._xy(self.p0.x, self.p1.y)
+        (_width, _height) = canvas._size(self.rect_width, self.rect_height)
         if self.color:
             canvas.fill_style = self.color
-            canvas.fill_rect(self.p0.x, self.p0.y,
-                             self.rect_width, self.rect_height)
+            canvas.fill_rect(_x, _y, _width, _height)
         if self.outline:
             canvas.stroke_style = self.outline
             canvas.line_width = self.line_width
-            canvas.stroke_rect(self.p0.x, self.p0.y,
-                               self.rect_width, self.rect_height)
+            canvas.stroke_rect(_x, _y, _width, _height)
             
 def _random_circle():
     """ Return random (x, y) within a circle at (0,0) with radius 1 """
@@ -499,17 +730,21 @@ class CrudeLine(Shape):
         Shape.__init__(self, x=(xa+xd)/2, y=(ya+yd/2), 
                        color=color, outline=None, line_width=line_width)
         self.crudity = crudity
-    def _render(self, canvas):
+    def _render(self):
+        canvas = self.drawing
         canvas.begin_path()
         canvas.line_width = self.line_width
         canvas.stroke_style = self.color
-        canvas.move_to(self.xa, self.ya)
-        canvas.bezier_curve_to(self.xb, self.yb, self.xc, self.yc,
-                               self.xd, self.yd)
+        (_xa, _ya) = canvas._xy(self.xa, self.ya)
+        (_xb, _yb) = canvas._xy(self.xb, self.yb)
+        (_xc, _yc) = canvas._xy(self.xc, self.yc)
+        (_xd, _yd) = canvas._xy(self.xd, self.yd)
+        canvas.move_to(_xa, _ya)
+        canvas.bezier_curve_to(_xb, _yb, _xc, _yc, _xd, _yd)
         canvas.stroke()
-        if False:
-            # debugging by drawing its four bezier points
-            for (x,y) in ((self.xa, self.ya), (self.xb, self.yb), 
-                          (self.xc, self.yc), (self.xd, self.yd)):
-                canvas.fill_style = 'red'
-                canvas.fill_arc(x, y, 2, 0.0, 2*pi)
+        #if False:
+        #    # debugging by drawing its four bezier points
+        #    for (x,y) in ((self.xa, self.ya), (self.xb, self.yb), 
+        #                  (self.xc, self.yc), (self.xd, self.yd)):
+        #        canvas.fill_style = 'red'
+        #        canvas.fill_arc(x, y, 2, 0.0, 2*pi)
